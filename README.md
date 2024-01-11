@@ -1,5 +1,5 @@
 # cdeeply-m-file
-MATLAB / Octave interface to C Deeply's supervised and unsupervised neural network generators.
+MATLAB / Octave interface to C Deeply's generators.
 
 Put cdeeply_neural_network.m into a reachable directory, then:
 
