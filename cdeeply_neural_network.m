@@ -1,4 +1,65 @@
+% 
+% cdeeply.c - interfaces to neural network generator
+% 
+% C Deeply
+% Copyright (C) 2023 C Deeply, LLC
+% 
+% Permission is hereby granted, free of charge, to any person obtaining a copy
+% of this software and associated documentation files (the "Software"), to deal
+% in the Software without restriction, including without limitation the rights
+% to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+% copies of the Software, and to permit persons to whom the Software is
+% furnished to do so, subject to the following conditions:
+% 
+% The above copyright notice and this permission notice shall be included in all
+% copies or substantial portions of the Software.
+% 
+% THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+% IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+% FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+% AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+% LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+% OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+% SOFTWARE.
+% 
+
 % usage:
+% 
+% 0) Create a class instance:
+% 
+% myNN = cdeeply_neural_network;
+% 
+% 
+% 1) Generate a neural network, using either of:
+% 
+% myNN.tabular_regressor( trainingSamples, indexOrder, outputIndices, importances,
+%               maxWeights, maxHiddenNeurons, maxLayers, maxLayerSkips, hasBias, allowIOconnections )
+% 
+% myNN.tabular_encoder( trainingSamples, indexOrder, importances,
+%               doEncoder, doDecoder, numEncodingFeatures, numVariationalFeatures, variationalDistribution,
+%               maxWeights, maxHiddenNeurons, maxLayers, maxLayerSkips, hasBias )
+% 
+% * indexOrder="SAMPLE_FEATURE_ARRAY" for trainingSamples[sampleNo][featureNo] indexing,
+%       or "FEATURE_SAMPLE_ARRAY" for trainingSamples[featureNo][sampleNo] indexing.
+% * For supervised x->y regression, the sample table contains BOTH 'x' and 'y', the latter specified by outputIndices[].
+% * The importances table, if not empty, has dimensions numOutputFeatures and numSamples (ordered by indexOrder),
+%       and weights the training cost function:  C = sum(Imp*dy^2).
+% * Weight/neuron/etc limits are either positive integers or "NO_MAX".
+% * variationalDistribution is either "UNIFORM_DIST" ([0, 1]) or "NORMAL_DIST" (mean=0, variance=1).
+% * doEncoder, doDecoder, hasBias, and allowIOconnections are all Booleans.
+% Both functions return the network outputs from the training data, if you care to check that it agrees with what's computed locally.
+% 
+% 
+% 2) Run the network on a (single) new sample
+% 
+% oneSampleOutput = myNN.runSample(oneSampleInput [, oneSampleVariationalInput])
+% 
+% where oneSampleInput is a list of length numInputFeatures, and oneSampleOutput is a list of length numOutputFeatures.
+% * If it's an autoencoder (encoder+decoder), length(oneSampleInput) and length(oneSampleOutput) equal the size of the training sample space.
+%       If it's just an encoder, length(oneSampleOutput) equals numEncodingFeatures; if decoder only, length(oneSampleInput) must equal numEncodingFeatures.
+% * If it's a decoder or autoencoder network having numVariationalFeatures > 0, then oneSampleVariationalInput is a list
+%       of length numVariationalFeatures containing random numbers drawn from variationalDistribution.
+
 
 classdef cdeeply_neural_network < handle
 properties
@@ -22,20 +83,23 @@ end
 methods (Access = public)
     
     function sampleOutputs = tabular_regressor(self, ...
-            numInputs, numOutputs, numSamples, ...
-            samples, importances, sampleTableTranspose, outputRowsColumns, ...
+            trainingSamples, indexOrder, outputIndices, importances, ...
             maxWeights, maxHiddenNeurons, maxLayers, maxLayerSkips, hasBias, allowIOconnections)
         
-        [ sampleString, rowcolString ] = self.CDNN_data2table(samples, numInputs+numOutputs, numSamples, sampleTableTranspose, 1);
+        [ numFeatures, numSamples ] = self.getDims(size(trainingSamples), indexOrder);
+        numOutputs = length(outputIndices);
+        numInputs = numFeatures - numOutputs;
+        
+        [ sampleString, rowcolString ] = self.CDNN_data2table(trainingSamples, numInputs+numOutputs, numSamples, indexOrder, 1);
         if length(importances) > 0
-            importancesString = self.CDNN_data2table(samples, numInputs, numSamples, sampleTableTranspose, 1);
+            importancesString = self.CDNN_data2table(trainingSamples, numInputs, numSamples, indexOrder, 1);
         else
             importancesString = "";
         end
         
-        orcStrings = cell(size(outputRowsColumns));
-        for rc = 1:length(outputRowsColumns)
-            orcStrings{rc} = num2str(outputRowsColumns(rc));
+        orcStrings = cell(size(outputIndices));
+        for rc = 1:length(outputIndices)
+            orcStrings{rc} = num2str(outputIndices(rc));
         end
         outputRowsColumnsString = strjoin(orcStrings, ',');
         
@@ -52,21 +116,22 @@ methods (Access = public)
             "allowIO", self.ifChecked(allowIOconnections), ...
             "submitStatus", "Submit", ...
             "NNtype", "regressor", ...
-            "fromWebpage", "off" });
+            "formSource", "MATLAB_API" });
     
-        sampleOutputs = self.buildCDNN(response, numOutputs, numSamples, sampleTableTranspose);
+        sampleOutputs = self.buildCDNN(response, numOutputs, numSamples, indexOrder);
     end
     
     
     function sampleOutputs = tabular_encoder(self, ...
-            numInputs, numFeatures, numVariationalFeatures, numSamples, ...
-            samples, importances, sampleTableTranspose, ...
-            doEncoder, doDecoder, variationalDist, ...
+            trainingSamples, indexOrder, importances, ...
+            doEncoder, doDecoder, numEncodingFeatures, numVariationalFeatures, variationalDist, ...
             maxWeights, maxHiddenNeurons, maxLayers, maxLayerSkips, hasBias)
         
-        [ sampleString, rowcolString ] = self.CDNN_data2table(samples, numInputs, numSamples, sampleTableTranspose, 2);
+        [ numFeatures, numSamples ] = self.getDims(size(trainingSamples), indexOrder);
+        
+        [ sampleString, rowcolString ] = self.CDNN_data2table(trainingSamples, numFeatures, numSamples, indexOrder, 2);
         if length(importances) > 0
-            importancesString = self.CDNN_data2table(samples, numInputs, numSamples, sampleTableTranspose, 2);
+            importancesString = self.CDNN_data2table(trainingSamples, numFeatures, numSamples, indexOrder, 2);
         else
             importancesString = "";
         end
@@ -80,7 +145,7 @@ methods (Access = public)
             "samples", sampleString, ...
             "importances", importancesString, ...
             "rowscols", rowcolString, ...
-            "numFeatures", num2str(numFeatures), ...
+            "numFeatures", num2str(numEncodingFeatures), ...
             "doEncoder", self.ifChecked(doEncoder), ...
             "doDecoder", self.ifChecked(doDecoder), ...
             "numVPs", num2str(numVariationalFeatures), ...
@@ -92,13 +157,13 @@ methods (Access = public)
             "hasBias", self.ifChecked(hasBias), ...
             "submitStatus", "Submit", ...
             "NNtype", "autoencoder", ...
-            "fromWebpage", "off" });
+            "formSource", "MATLAB_API" });
         
-        if doDecoder, numOutputs = numInputs;
-        else, numOutputs = numFeatures;
+        if doDecoder, numOutputs = numFeatures;
+        else, numOutputs = numEncodingFeatures;
         end
         
-        sampleOutputs = self.buildCDNN(response, numOutputs, numSamples, sampleTableTranspose);
+        sampleOutputs = self.buildCDNN(response, numOutputs, numSamples, indexOrder);
     end
     
     
@@ -140,7 +205,21 @@ methods (Access = private)
     end
     
     
-    function [tableStr, rowcol] = CDNN_data2table(self, data, numIOs, numSamples, transpose, NNtype)
+    function [ numFeatures, numSamples ] = getDims(self, sampleTableSize, transpose)
+        
+        if (strcmp(transpose, "FEATURE_SAMPLE_ARRAY"))
+            numFeatures = sampleTableSize(1);
+            numSamples = sampleTableSize(2);
+        elseif (strcmp(transpose, "SAMPLE_FEATURE_ARRAY"))
+            numFeatures = sampleTableSize(2);
+            numSamples = sampleTableSize(1);
+        else
+            error("transpose must be either \"FEATURE_SAMPLE_ARRAY\" or \"SAMPLE_FEATURE_ARRAY\"");
+        end
+    end
+    
+    
+    function [ tableStr, rowcol ] = CDNN_data2table(self, data, numIOs, numSamples, transpose, NNtype)
         
         rowcolStrings = { "rows", "columns" };
         
@@ -152,8 +231,6 @@ methods (Access = private)
             dim1 = numSamples;
             dim2 = numIOs;
             rowcol = rowcolStrings{3-NNtype};
-        else
-            error("transpose must be either \"FEATURE_SAMPLE_ARRAY\" or \"SAMPLE_FEATURE_ARRAY\"");
         end
         
         rowElStrings = cell(1, dim2);

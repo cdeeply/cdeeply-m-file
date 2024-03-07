@@ -1,38 +1,50 @@
-numInputs = 10;
+numFeatures = 10;
 numSamples = 100;
-NNtypes = { "encoder", "regressor" };
+NNtypes = { "autoencoder with 1 latent feature", "regressor" };
 NN = cdeeply_neural_network;
+
+
+    % generate a training matrix that traces out some noisy curve in Nf-dimensional space (noise ~ 0.1)
+
+dependentVar = rand(numSamples+1, 1);
+trainTestMat = 0.1 * randn(numSamples+1, numFeatures);
+for cf = 1:numFeatures
+    featurePhase = 2*pi*rand(1);
+    featureCurvature = 2*pi*rand(1);
+    trainTestMat(:, cf) = trainTestMat(:, cf) + sin(featureCurvature*dependentVar + featurePhase);
+end
+
 
 for c2 = 1:2
     
-    trainingData = zeros(numSamples, numInputs+(c2-1));
-    for s = 1:numSamples
-        iSum = 0;                               % the last row is just some function
-        for io = 1:numInputs+(c2-1)
-            trainingData(s, io) = rand();
-            iSum = iSum + trainingData(s, io) * sin(io) / numInputs;
-        end
-        trainingData(s, end) = cos(iSum);
-    end
-    
     disp([ "Generating " NNtypes{c2} ])
     if c2 == 1
-        sampleOutputs = NN.tabular_encoder( ...
-                numInputs, 1, 0, numSamples, trainingData, [], "SAMPLE_FEATURE_ARRAY", ...
-                true, true, "NORMAL_DIST", "NO_MAX", "NO_MAX", "NO_MAX", "NO_MAX", true);
+        outputsComputedByServer = NN.tabular_encoder( ...
+                trainTestMat(1:numSamples, :), "SAMPLE_FEATURE_ARRAY", [], ...
+                true, true, 1, 0, "NORMAL_DIST", "NO_MAX", "NO_MAX", "NO_MAX", "NO_MAX", true);
+        firstSampleOutputs = NN.runSample(trainTestMat(1, :));
+        testSampleOutputs = NN.runSample(trainTestMat(end, :));
     else
-        sampleOutputs = NN.tabular_regressor(
-                numInputs, 1, numSamples, trainingData, [], "SAMPLE_FEATURE_ARRAY", [ numInputs+1 ], ...
+        outputsComputedByServer = NN.tabular_regressor(
+                trainTestMat(1:numSamples, :), "SAMPLE_FEATURE_ARRAY", [ numFeatures ], [], ...
                 "NO_MAX", "NO_MAX", "NO_MAX", "NO_MAX", true, true);
+        firstSampleOutputs = NN.runSample(trainTestMat(1, 1:(numFeatures-1)));
+        testSampleOutputs = NN.runSample(trainTestMat(end, 1:(numFeatures-1)));
     end
     
-    out1 = NN.runSample(trainingData(1, 1:numInputs))(1);
-    if abs(out1-sampleOutputs(1)) > .0001
+    if abs(firstSampleOutputs(1)-outputsComputedByServer(1)) > .0001
         error([ "  ** Network problem?  Sample 1 output was calculated as " ...
-                        num2str(out1) " locally vs " num2str(sampleOutputs(1)) " by the server" ]);
+                        num2str(firstSampleOutputs(1)) " locally vs " num2str(outputsComputedByServer(1)) " by the server" ]);
     end
     
-    disp([ "  Output on sample #1 was " num2str(out1) ])
+    if c2 == 1
+        targetValue = trainTestMat(end, 1);
+        targetDescription = "  Reconstructed test sample, feature 1";
+    else
+        targetValue = trainTestMat(end, numFeatures);
+        targetDescription = "  Test sample output";
+    end
+    disp([ targetDescription " was " num2str(testSampleOutputs(1)) "; target value was " num2str(targetValue) ])
 end
         
         
