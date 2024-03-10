@@ -67,7 +67,7 @@ methods (Access = public)
         
         [ sampleString, rowcolString ] = self.CDNN_data2table(trainingSamples, numInputs+numOutputs, numSamples, indexOrder, 1);
         if length(importances) > 0
-            importancesString = self.CDNN_data2table(trainingSamples, numInputs, numSamples, indexOrder, 1);
+            importancesString = self.CDNN_data2table(importances, numInputs, numSamples, indexOrder, 1);
         else
             importancesString = "";
         end
@@ -106,7 +106,7 @@ methods (Access = public)
         
         [ sampleString, rowcolString ] = self.CDNN_data2table(trainingSamples, numFeatures, numSamples, indexOrder, 2);
         if length(importances) > 0
-            importancesString = self.CDNN_data2table(trainingSamples, numFeatures, numSamples, indexOrder, 2);
+            importancesString = self.CDNN_data2table(importances, numFeatures, numSamples, indexOrder, 2);
         else
             importancesString = "";
         end
