@@ -9,11 +9,12 @@ Put cdeeply_neural_network.m into a reachable directory, then:
 
 **Function definitions:**
 
-`sampleOutputs = tabular_regressor(trainingSamples, sampleTableTranspose, outputRowOrColumnList, importances,`  
+`sampleOutputs = tabular_regressor(trainingSamples, sampleTableTranspose,`  
+`        outputRowOrColumnList, importances,`  
 `        maxWeights, maxHiddenNeurons, maxLayers, maxWeightDepth, maxActivationRate,`  
-`        maxWeightsHardLimit, maxHiddenNeuronsHardLimit, maxActivationsHardLimit, allowedAFs, `  
-`        ifQuantizeWeights, wQuantBits, wQuantZeroInt, wQuantRange, `  
-`        ifQuantizeActivations, yQuantBits, yQuantZeroInt, yQuantRange, `  
+`        maxWeightsHardLimit, maxHiddenNeuronsHardLimit, maxActivationsHardLimit, allowedAFs,`  
+`        ifQuantizeWeights, wQuantBits, wQuantZeroInt, wQuantRange,`  
+`        ifQuantizeActivations, yQuantBits, yQuantZeroInt, yQuantRange,`  
 `        sparseWeights, allowNegativeWeights, ifNNhasBias, ifAllowingInputOutputConnections)`
 
 Generates a x->y prediction network using *supervised* training on `trainingSamples`.
@@ -33,9 +34,9 @@ Generates a x->y prediction network using *supervised* training on `trainingSamp
 `sampleOutputs = tabular_encoder(trainingSamples, sampleTableTranspose, importances,`  
 `        ifDoEncoder, ifDoDecoder, numEncodingFeatures, numVariationalFeatures, variationalDist,`  
 `        maxWeights, maxHiddenNeurons, maxLayers, maxWeightDepth, maxActivationRate,`  
-`        maxWeightsHardLimit, maxHiddenNeuronsHardLimit, maxActivationsHardLimit, allowedAFs, `  
-`        ifQuantizeWeights, wQuantBits, wQuantZeroInt, wQuantRange, `  
-`        ifQuantizeActivations, yQuantBits, yQuantZeroInt, yQuantRange, `  
+`        maxWeightsHardLimit, maxHiddenNeuronsHardLimit, maxActivationsHardLimit, allowedAFs,`  
+`        ifQuantizeWeights, wQuantBits, wQuantZeroInt, wQuantRange,`  
+`        ifQuantizeActivations, yQuantBits, yQuantZeroInt, yQuantRange,`  
 `        sparseWeights, allowNegativeWeights, ifNNhasBias)`
 
 Generates an autoencoder (or an encoder or decoder) using *unsupervised* training on `trainingSamples`.
